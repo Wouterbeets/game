@@ -274,12 +274,12 @@ var (
 	Files            = app.Flag("file", "path/to/file1 path/to/file2").Short('f').Default("bestAi").Strings()
 	saveFile         = app.Flag("saveFile", "path/to/file1 path/to/file2").Short('s').Default("bestAi").String()
 	saveSize         = app.Flag("saveSize", "amount of ais to be saved, may not exceed poolSize").Short('a').Default("10").Int()
-	generations      = app.Flag("generations", "generations to train network. ex: 50").Default("50").Short('g').Int()
+	generations      = app.Flag("generations", "generations to train network. ex: 50").Default("500").Short('g').Int()
 	mutation         = app.Flag("mutation", "fraction of  genes to be mutated. ex: 0.05").Default("0.05").Short('m').Float64()
 	mutationStrength = app.Flag("mutationStrength", "strength of the aplied mutation. ex: 1").Default("1").Short('t').Float64()
 	hiddenLayers     = app.Flag("hiddenLayers", "amount of hidden layers in neural network. ex: 1").Default("2").Short('l').Int()
-	neuronsPerLayer  = app.Flag("neuronsPerLayer", "neurons per layer. ex: 9").Short('n').Default("6").Int()
-	poolSize         = app.Flag("poolSize", "number of neuralNetworks in generation pool").Short('p').Default("50").Int()
+	neuronsPerLayer  = app.Flag("neuronsPerLayer", "neurons per layer. ex: 9").Short('n').Default("9").Int()
+	poolSize         = app.Flag("poolSize", "number of neuralNetworks in generation pool").Short('p').Default("500").Int()
 )
 
 //initialise logfiles and command line flags
