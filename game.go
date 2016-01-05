@@ -8,8 +8,9 @@ package main
 import (
 	"encoding/gob"
 	"fmt"
-	"github.com/WouterBeets/gen"
+	"github.com/WouterBeets/genetic"
 	flag "gopkg.in/alecthomas/kingpin.v2"
+	"io/ioutil"
 	"log"
 	"math"
 	"os"
@@ -27,46 +28,9 @@ const (
 //Game is a struct that implements the challenge interface from the genetic package
 // it holds the tic tac toe board.
 type Game struct {
-	gameBoard []float64
-	size      int
-	caller    int
-	winner    int
-}
-
-//importAisInfo is the struct used to save ais for later use or parse ais into the program
-type importAisInfo struct {
-	AiNames []string
-	Weights [][]float64
-}
-
-//NewGame is the game constructor an allocates the tic tac toe board
-func NewGame() *Game {
-	g := &Game{
-		gameBoard: make([]float64, 9),
-		size:      3,
-	}
-	return g
-}
-
-//checkRow is used to check for a winner
-func checkRow(row []float64) int {
-	p := row[0]
-	for i := range row {
-		if row[i] != p {
-			return 0
-		}
-	}
-	return int(p)
-}
-
-//hasEmpty is used to check for a draw
-func (g *Game) hasEmpty() bool {
-	for i, _ := range g.gameBoard {
-		if g.gameBoard[i] == 0 {
-			return true
-		}
-	}
-	return false
+	gameBoard [9]float64 //the tic tac toe board
+	caller    int        //the player whose turn is
+	winner    int        //defines winner at the end of a game
 }
 
 //String allows Game to implement the stringer interface
@@ -99,44 +63,73 @@ func (g *Game) checkWin() (winner int) {
 	return 0
 }
 
-//clean resets the game baard
-func clean(g *Game) {
-	for i := range g.gameBoard {
-		g.gameBoard[i] = 0
+//checkRow is used to check for a winner
+func checkRow(row []float64) int {
+	p := row[0]
+	for i := range row {
+		if row[i] != p {
+			return 0
+		}
 	}
+	return int(p)
+}
+
+//hasEmpty is used to check for a draw
+func (g *Game) hasEmpty() bool {
+	for i, _ := range g.gameBoard {
+		if g.gameBoard[i] == 0 {
+			return true
+		}
+	}
+	return false
 }
 
 //Start makes the two ais passed as parameters fight and returns scores based on their performance
+/*
+	TODO right now package genetic calls Start 2X so each player can play as P1.
+	That logic should be here since genetic should work with any 2p game and not all of them have a P1 advantage
+*/
 func (g *Game) Start(p1, p2 *gen.Ai) (s1, s2 float64) {
 	defer clean(g)
+	fmt.Print(".")
+	log.Printf("%20s vs %20s ", p1.Name, p2.Name)
 	for {
 		g.caller = P1
-		_, m := g.miniMax(p1, 1, P1)
+		_, m := g.miniMax(p1, *mMDepth, P1)
 		g.gameBoard[m] = P1
 		log.Println(g)
 		if g.winner = g.checkWin(); g.winner != 0 {
 			break
 		}
 		g.caller = P2
-		_, m = g.miniMax(p2, 1, P2)
+		_, m = g.miniMax(p2, *mMDepth, P2)
 		g.gameBoard[m] = P2
 		log.Println(g)
 		if g.winner = g.checkWin(); g.winner != 0 {
 			break
 		}
 	}
-	log.Println("winner is", g.winner)
 	if g.winner == DRAW {
+		log.Println("draw")
 		s1 = 0.50
 		s2 = 0.55
 	} else if g.winner == P1 {
+		log.Println("winner is", p1.Name)
 		s1 = 1
 		s2 = 0
 	} else {
+		log.Println("winner is", p2.Name)
 		s1 = 0
 		s2 = 1.05
 	}
 	return
+}
+
+//clean resets the game baard
+func clean(g *Game) {
+	for i := range g.gameBoard {
+		g.gameBoard[i] = 0
+	}
 }
 
 //getMoves returns a []int containing the indexes of playable tiles
@@ -167,10 +160,10 @@ func (g *Game) switchBoard() {
 func (g *Game) miniMax(ai *gen.Ai, depth int, turn int) (bestScore float64, move int) {
 	if depth == 0 || g.hasEmpty() == false {
 		if g.caller == P1 {
-			ai.In(g.gameBoard)
+			ai.In(g.gameBoard[:])
 		} else if g.caller == P2 {
 			g.switchBoard()
-			ai.In(g.gameBoard)
+			ai.In(g.gameBoard[:])
 			g.switchBoard()
 		} else {
 			panic("caller of miniMax != p1 && different from P2")
@@ -203,6 +196,12 @@ func (g *Game) miniMax(ai *gen.Ai, depth int, turn int) (bestScore float64, move
 	return
 }
 
+//importAisInfo is the struct used to save ais for later use or parse ais into the program
+type importAisInfo struct {
+	AiNames []string
+	Weights [][]float64
+}
+
 //function that fetches  ais from files
 func importAis(files []string) (ais importAisInfo) {
 	for _, fileName := range files {
@@ -223,6 +222,10 @@ func importAis(files []string) (ais importAisInfo) {
 		ais.AiNames = append(ais.AiNames, batchOfAis.AiNames[:]...)
 		ais.Weights = append(ais.Weights, batchOfAis.Weights[:]...)
 		file.Close()
+	}
+	fmt.Println("total imported ais:", len(ais.AiNames))
+	for _, name := range ais.AiNames {
+		fmt.Println(name)
 	}
 	return
 }
@@ -257,7 +260,7 @@ func main() {
 	ais := importAis(*Files)
 	*poolSize += len(ais.AiNames)
 	p := gen.CreatePool(*poolSize, *mutation, *mutationStrength, INPUT_NEURONS, *neuronsPerLayer, *hiddenLayers+2, OUTPUT_NEURONS)
-	g := NewGame()
+	g := new(Game)
 	p.Chal = g
 	for i, name := range ais.AiNames {
 		log.Println("imported ai", i, name)
@@ -279,16 +282,27 @@ var (
 	mutationStrength = app.Flag("mutationStrength", "strength of the aplied mutation. ex: 1").Default("1").Short('t').Float64()
 	hiddenLayers     = app.Flag("hiddenLayers", "amount of hidden layers in neural network. ex: 1").Default("2").Short('l').Int()
 	neuronsPerLayer  = app.Flag("neuronsPerLayer", "neurons per layer. ex: 9").Short('n').Default("9").Int()
-	poolSize         = app.Flag("poolSize", "number of neuralNetworks in generation pool").Short('p').Default("500").Int()
+	poolSize         = app.Flag("poolSize", "number of neuralNetworks in generation pool").Short('p').Default("100").Int()
+	logFile          = app.Flag("log", "path/to/logFile").Short('l').Default("log.txt").String()
+	logging          = app.Flag("logging", "should logging be turned on?").Short('z').Default("true").Bool()
+	mMDepth          = app.Flag("depth", "miniMax depth, how many moves the algorithm looks ahead before it feeds the board positions to the neural network").Short('d').Default("1").Int()
 )
 
 //initialise logfiles and command line flags
 func init() {
-	f, err := os.Create("log.txt")
-	if err != nil {
-		log.Panic(err)
+	if *logging {
+		f, err := os.Create(*logFile)
+		if err != nil {
+			log.Panic(err)
+		}
+		log.SetFlags(0)
+		log.SetOutput(f)
+	} else {
+		dis := ioutil.Discard
+		log.SetOutput(dis)
 	}
-	log.SetFlags(0)
-	log.SetOutput(f)
 	app.Parse(os.Args[1:])
+	fmt.Println("Game starting\nPoolsize :\t", *poolSize)
+	fmt.Println("Generations :\t", *generations)
+	fmt.Println("neuronsPL :\t", *neuronsPerLayer)
 }
