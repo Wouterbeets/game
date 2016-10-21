@@ -8,21 +8,21 @@ package main
 import (
 	"encoding/gob"
 	"fmt"
-	"github.com/WouterBeets/genetic"
+	gen "github.com/WouterBeets/genetic"
 	flag "gopkg.in/alecthomas/kingpin.v2"
 	"io/ioutil"
 	"log"
-	"math"
+	//	"math"
 	"os"
 	//"strconv"
 )
 
 const (
 	P1             = 1
-	P2             = 2
+	P2             = -1
 	DRAW           = 3
-	INPUT_NEURONS  = 9
-	OUTPUT_NEURONS = 1
+	INPUT_NEURONS  = 10
+	OUTPUT_NEURONS = 9
 )
 
 //Game is a struct that implements the challenge interface from the genetic package
@@ -84,6 +84,32 @@ func (g *Game) hasEmpty() bool {
 	return false
 }
 
+func getBestMove(scores []float64) (move int) {
+	bestScore := -1.0
+	bestMove := 0
+	for move, score := range scores {
+		if score > bestScore {
+			bestScore = score
+			bestMove = move
+		}
+	}
+	return bestMove
+}
+
+func (g *Game) move(ai *gen.Ai, rounds int) []float64 {
+	if g.caller == P2 {
+		g.switchBoard()
+		input := append(g.gameBoard[:], float64(rounds))
+		ai.In(input)
+		g.switchBoard()
+	} else {
+		input := append(g.gameBoard[:], float64(rounds))
+		ai.In(input)
+	}
+	scores := ai.Out()
+	return scores
+}
+
 //Start makes the two ais passed as parameters fight and returns scores based on their performance
 /*
 	TODO right now package genetic calls Start 2X so each player can play as P1.
@@ -91,36 +117,68 @@ func (g *Game) hasEmpty() bool {
 */
 func (g *Game) Start(p1, p2 *gen.Ai) (s1, s2 float64) {
 	defer clean(g)
-	fmt.Print(".")
 	log.Printf("%20s vs %20s ", p1.Name, p2.Name)
+	bestMove := 0
+	var scores []float64
+	rounds := 0
 	for {
 		g.caller = P1
-		_, m := g.miniMax(p1, *mMDepth, P1)
-		g.gameBoard[m] = P1
+		scores = g.move(p1, rounds)
+		bestMove = getBestMove(scores)
+		if g.gameBoard[bestMove] != 0 {
+			g.winner = 2
+			log.Println(g, "\n", bestMove)
+			break
+		}
+		g.gameBoard[bestMove] = P1
 		log.Println(g)
 		if g.winner = g.checkWin(); g.winner != 0 {
 			break
 		}
+		rounds++
 		g.caller = P2
-		_, m = g.miniMax(p2, *mMDepth, P2)
-		g.gameBoard[m] = P2
+		scores = g.move(p2, rounds)
+		bestMove = getBestMove(scores)
+		if g.gameBoard[bestMove] != 0 {
+			g.winner = -2
+			log.Println(g, "\n", bestMove)
+			break
+		}
+		g.gameBoard[bestMove] = P2
 		log.Println(g)
 		if g.winner = g.checkWin(); g.winner != 0 {
 			break
 		}
+		rounds++
+	}
+	if rounds > 6 {
+		fmt.Println(rounds)
 	}
 	if g.winner == DRAW {
 		log.Println("draw")
-		s1 = 0.50
-		s2 = 0.55
+		s1 = float64(200) + float64(rounds)
+		s2 = float64(200) + float64(rounds)
+		fmt.Print("D\n\n")
 	} else if g.winner == P1 {
 		log.Println("winner is", p1.Name)
-		s1 = 1
-		s2 = 0
-	} else {
+		s1 = float64(100) + float64(rounds)
+		s2 = float64(10) + float64(rounds)
+		fmt.Print("W\n")
+	} else if g.winner == P2 {
 		log.Println("winner is", p2.Name)
-		s1 = 0
-		s2 = 1.05
+		s1 = float64(10) + float64(rounds)
+		s2 = float64(100) + float64(rounds)
+		fmt.Print("W\n")
+	} else if g.winner == 2 {
+		log.Println(p1.Name, "broke the rules")
+		s1 = float64(0) + float64(rounds)
+		s2 = float64(5) + float64(rounds)
+		fmt.Print(".")
+	} else if g.winner == -2 {
+		log.Println(p2.Name, "broke the rules")
+		s1 = float64(5) + float64(rounds)
+		s2 = float64(0) + float64(rounds)
+		fmt.Print(".")
 	}
 	return
 }
@@ -157,44 +215,44 @@ func (g *Game) switchBoard() {
 
 //recursive minimax function. Depth is set to 1 in the caller so the intelligence is in the ai
 // and not in the minimax
-func (g *Game) miniMax(ai *gen.Ai, depth int, turn int) (bestScore float64, move int) {
-	if depth == 0 || g.hasEmpty() == false {
-		if g.caller == P1 {
-			ai.In(g.gameBoard[:])
-		} else if g.caller == P2 {
-			g.switchBoard()
-			ai.In(g.gameBoard[:])
-			g.switchBoard()
-		} else {
-			panic("caller of miniMax != p1 && different from P2")
-		}
-		score := ai.Out()
-		return score[0], 0
-	}
-	moves := g.getMoves()
-	if turn == P1 {
-		bestScore = 0.0
-		for _, m := range moves {
-			g.gameBoard[m] = P1
-			newBest, _ := g.miniMax(ai, depth-1, P2)
-			if newBest >= bestScore {
-				bestScore, move = newBest, m
-			}
-			g.gameBoard[m] = 0
-		}
-	} else {
-		bestScore = math.MaxFloat64
-		for _, m := range moves {
-			g.gameBoard[m] = P2
-			newBest, _ := g.miniMax(ai, depth-1, P1)
-			if newBest <= bestScore {
-				bestScore, move = newBest, m
-			}
-			g.gameBoard[m] = 0
-		}
-	}
-	return
-}
+//func (g *Game) miniMax(ai *gen.Ai, depth int, turn int) (bestScore float64, move int) {
+//	if depth == 0 || g.hasEmpty() == false {
+//		if g.caller == P1 {
+//			ai.In(g.gameBoard[:])
+//		} else if g.caller == P2 {
+//			g.switchBoard()
+//			ai.In(g.gameBoard[:])
+//			g.switchBoard()
+//		} else {
+//			panic("caller of miniMax != P1 && different from P2")
+//		}
+//		score := ai.Out()
+//		return score[0], 0
+//	}
+//	moves := g.getMoves()
+//	if turn == P1 {
+//		bestScore = 0.0
+//		for _, m := range moves {
+//			g.gameBoard[m] = P1
+//			newBest, _ := g.miniMax(ai, depth-1, P2)
+//			if newBest >= bestScore {
+//				bestScore, move = newBest, m
+//			}
+//			g.gameBoard[m] = 0
+//		}
+//	} else {
+//		bestScore = math.MaxFloat64
+//		for _, m := range moves {
+//			g.gameBoard[m] = P2
+//			newBest, _ := g.miniMax(ai, depth-1, P1)
+//			if newBest <= bestScore {
+//				bestScore, move = newBest, m
+//			}
+//			g.gameBoard[m] = 0
+//		}
+//	}
+//	return
+//}
 
 //importAisInfo is the struct used to save ais for later use or parse ais into the program
 type importAisInfo struct {
@@ -224,9 +282,9 @@ func importAis(files []string) (ais importAisInfo) {
 		file.Close()
 	}
 	fmt.Println("total imported ais:", len(ais.AiNames))
-	for _, name := range ais.AiNames {
-		fmt.Println(name)
-	}
+	//	for _, name := range ais.AiNames {
+	//		fmt.Println(name)
+	//	}
 	return
 }
 
@@ -255,20 +313,66 @@ func saveAis(ais []*gen.Ai, saveFile string) {
 	}
 }
 
-//Program entry point
-func main() {
-	ais := importAis(*Files)
-	*poolSize += len(ais.AiNames)
+func play(ais importAisInfo) {
+	fmt.Println("choose your opponent")
+	for i, name := range ais.AiNames {
+		fmt.Println(i, name)
+	}
+	fmt.Println("type the number")
+	num := 0
+	fmt.Scanln(&num)
+	fmt.Println("you chose", ais.AiNames[num])
+	*poolSize = len(ais.AiNames)
 	p := gen.CreatePool(*poolSize, *mutation, *mutationStrength, INPUT_NEURONS, *neuronsPerLayer, *hiddenLayers+2, OUTPUT_NEURONS)
-	g := new(Game)
-	p.Chal = g
 	for i, name := range ais.AiNames {
 		log.Println("imported ai", i, name)
 		p.Ai[i].Name = name
 		p.Ai[i].SetWeights(ais.Weights[i])
 	}
-	p.Evolve(*generations, nil, nil)
-	saveAis(p.Ai, *saveFile)
+	op := p.Ai[num]
+	g := new(Game)
+	p.Chal = g
+	ex := new(Game)
+	fmt.Println(ex)
+	fmt.Println("when its your turn type the index of square you want to play")
+	ex.gameBoard = [9]float64{0, 1, 2, 3, 4, 5, 6, 7, 8}
+	rounds := 0
+	for {
+		moves := g.move(op, rounds)
+		allowedMoves := g.getMoves()
+		for _, m := range allowedMoves {
+			moves[m] += 1
+		}
+		fmt.Println(moves)
+		move := getBestMove(moves)
+		fmt.Println(op.Name, "plays", move)
+		g.gameBoard[move] = P1
+		fmt.Println("your turn")
+		fmt.Println(g)
+		rounds++
+		fmt.Scanln(&num)
+		g.gameBoard[num] = P2
+		rounds++
+	}
+}
+
+func main() {
+	ais := importAis(*Files)
+	if *inter {
+		play(ais)
+	} else {
+		*poolSize += len(ais.AiNames)
+		p := gen.CreatePool(*poolSize, *mutation, *mutationStrength, INPUT_NEURONS, *neuronsPerLayer, *hiddenLayers+2, OUTPUT_NEURONS)
+		g := new(Game)
+		p.Chal = g
+		for i, name := range ais.AiNames {
+			log.Println("imported ai", i, name)
+			p.Ai[i].Name = name
+			p.Ai[i].SetWeights(ais.Weights[i])
+		}
+		p.Evolve(*generations, nil, nil)
+		saveAis(p.Ai, *saveFile)
+	}
 }
 
 //flags
@@ -280,20 +384,22 @@ var (
 	generations      = app.Flag("generations", "generations to train network. ex: 50").Default("500").Short('g').Int()
 	mutation         = app.Flag("mutation", "fraction of  genes to be mutated. ex: 0.05").Default("0.05").Short('m').Float64()
 	mutationStrength = app.Flag("mutationStrength", "strength of the aplied mutation. ex: 1").Default("1").Short('t').Float64()
-	hiddenLayers     = app.Flag("hiddenLayers", "amount of hidden layers in neural network. ex: 1").Default("2").Short('l').Int()
+	hiddenLayers     = app.Flag("hiddenLayers", "amount of hidden layers in neural network. ex: 1").Default("3").Short('l').Int()
 	neuronsPerLayer  = app.Flag("neuronsPerLayer", "neurons per layer. ex: 9").Short('n').Default("9").Int()
 	poolSize         = app.Flag("poolSize", "number of neuralNetworks in generation pool").Short('p').Default("100").Int()
-	logFile          = app.Flag("log", "path/to/logFile").Short('l').Default("log.txt").String()
+	logFile          = app.Flag("log", "path/to/logFile").Short('r').Default("log.txt").String()
 	logging          = app.Flag("logging", "should logging be turned on?").Short('z').Default("true").Bool()
 	mMDepth          = app.Flag("depth", "miniMax depth, how many moves the algorithm looks ahead before it feeds the board positions to the neural network").Short('d').Default("1").Int()
+	inter            = app.Flag("interactive", "play against a evolved ai").Short('i').Default("false").Bool()
 )
 
 //initialise logfiles and command line flags
 func init() {
+	app.Parse(os.Args[1:])
 	if *logging {
 		f, err := os.Create(*logFile)
 		if err != nil {
-			log.Panic(err)
+			panic(err)
 		}
 		log.SetFlags(0)
 		log.SetOutput(f)
@@ -301,7 +407,6 @@ func init() {
 		dis := ioutil.Discard
 		log.SetOutput(dis)
 	}
-	app.Parse(os.Args[1:])
 	fmt.Println("Game starting\nPoolsize :\t", *poolSize)
 	fmt.Println("Generations :\t", *generations)
 	fmt.Println("neuronsPL :\t", *neuronsPerLayer)
