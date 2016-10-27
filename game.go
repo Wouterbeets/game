@@ -8,7 +8,7 @@ package main
 import (
 	"encoding/gob"
 	"fmt"
-	gen "github.com/WouterBeets/genetic"
+	gen "github.com/Wouterbeets/genetic"
 	flag "gopkg.in/alecthomas/kingpin.v2"
 	"io/ioutil"
 	"log"
