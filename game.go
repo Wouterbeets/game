@@ -281,6 +281,7 @@ func importAis(files []string) (ais importAisInfo) {
 		file.Close()
 	}
 	fmt.Println("total imported ais:", len(ais.AiNames))
+	fmt.Println("names:", ais.AiNames)
 	//	for _, name := range ais.AiNames {
 	//		fmt.Println(name)
 	//	}
