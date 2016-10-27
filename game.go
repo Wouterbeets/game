@@ -12,9 +12,7 @@ import (
 	flag "gopkg.in/alecthomas/kingpin.v2"
 	"io/ioutil"
 	"log"
-	//	"math"
 	"os"
-	//"strconv"
 )
 
 const (
@@ -84,11 +82,20 @@ func (g *Game) hasEmpty() bool {
 	return false
 }
 
-func getBestMove(scores []float64) (move int) {
+func isAllowed(allowedMoves []int, move int) bool {
+	for _, v := range allowedMoves {
+		if v == move {
+			return true
+		}
+	}
+	return false
+}
+
+func getBestMove(scores []float64, allowedMoves []int) (move int) {
 	bestScore := -1.0
 	bestMove := 0
 	for move, score := range scores {
-		if score > bestScore {
+		if score > bestScore && isAllowed(allowedMoves, move) {
 			bestScore = score
 			bestMove = move
 		}
@@ -124,7 +131,7 @@ func (g *Game) Start(p1, p2 *gen.Ai) (s1, s2 float64) {
 	for {
 		g.caller = P1
 		scores = g.move(p1, rounds)
-		bestMove = getBestMove(scores)
+		bestMove = getBestMove(scores, g.getMoves())
 		if g.gameBoard[bestMove] != 0 {
 			g.winner = 2
 			log.Println(g, "\n", bestMove)
@@ -138,7 +145,7 @@ func (g *Game) Start(p1, p2 *gen.Ai) (s1, s2 float64) {
 		rounds++
 		g.caller = P2
 		scores = g.move(p2, rounds)
-		bestMove = getBestMove(scores)
+		bestMove = getBestMove(scores, g.getMoves())
 		if g.gameBoard[bestMove] != 0 {
 			g.winner = -2
 			log.Println(g, "\n", bestMove)
@@ -151,34 +158,26 @@ func (g *Game) Start(p1, p2 *gen.Ai) (s1, s2 float64) {
 		}
 		rounds++
 	}
-	if rounds > 6 {
-		fmt.Println(rounds)
-	}
 	if g.winner == DRAW {
 		log.Println("draw")
-		s1 = float64(200) + float64(rounds)
-		s2 = float64(200) + float64(rounds)
-		fmt.Print("D\n\n")
+		s1 = float64(0.4)
+		s2 = float64(0.4)
 	} else if g.winner == P1 {
 		log.Println("winner is", p1.Name)
-		s1 = float64(100) + float64(rounds)
-		s2 = float64(10) + float64(rounds)
-		fmt.Print("W\n")
+		s1 = float64(1)
+		s2 = float64(0)
 	} else if g.winner == P2 {
 		log.Println("winner is", p2.Name)
-		s1 = float64(10) + float64(rounds)
-		s2 = float64(100) + float64(rounds)
-		fmt.Print("W\n")
+		s1 = float64(0)
+		s2 = float64(1)
 	} else if g.winner == 2 {
 		log.Println(p1.Name, "broke the rules")
-		s1 = float64(0) + float64(rounds)
-		s2 = float64(5) + float64(rounds)
-		fmt.Print(".")
+		s1 = float64(0)
+		s2 = float64(0)
 	} else if g.winner == -2 {
 		log.Println(p2.Name, "broke the rules")
-		s1 = float64(5) + float64(rounds)
-		s2 = float64(0) + float64(rounds)
-		fmt.Print(".")
+		s1 = float64(0)
+		s2 = float64(0)
 	}
 	return
 }
@@ -344,7 +343,7 @@ func play(ais importAisInfo) {
 			moves[m] += 1
 		}
 		fmt.Println(moves)
-		move := getBestMove(moves)
+		move := getBestMove(moves, g.getMoves())
 		fmt.Println(op.Name, "plays", move)
 		g.gameBoard[move] = P1
 		fmt.Println("your turn")
