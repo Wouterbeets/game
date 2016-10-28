@@ -92,6 +92,9 @@ func isAllowed(allowedMoves []int, move int) bool {
 }
 
 func getBestMove(scores []float64, allowedMoves []int) (move int) {
+	log.Println(scores[:3])
+	log.Println(scores[3:6])
+	log.Println(scores[6:9])
 	bestScore := -1.0
 	bestMove := 0
 	for move, score := range scores {
