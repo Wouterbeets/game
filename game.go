@@ -163,7 +163,7 @@ func (g *Game) Teach(p1 gen.Intel) float64 {
 
 func (g *Game) Combat(p1, p2 gen.Intel) (s1, s2 float64) {
 	defer clean(g)
-	//log.Printf("%20s vs %20s ", p1.Name, p2.Name)
+	log.Printf("%20s vs %20s ", p1.GetName(), p2.GetName())
 	bestMove := 0
 	var scores []float64
 	rounds := 0
@@ -176,8 +176,7 @@ func (g *Game) Combat(p1, p2 gen.Intel) (s1, s2 float64) {
 			break
 		}
 		g.gameBoard[bestMove] = P1
-		log.Println(g, "p1")
-		log.Println()
+		log.Println(g)
 		if g.winner = g.checkWin(); g.winner != 0 {
 			break
 		}
@@ -190,7 +189,7 @@ func (g *Game) Combat(p1, p2 gen.Intel) (s1, s2 float64) {
 			break
 		}
 		g.gameBoard[bestMove] = P2
-		log.Println(g, "p2")
+		log.Println(g)
 		if g.winner = g.checkWin(); g.winner != 0 {
 			break
 		}
