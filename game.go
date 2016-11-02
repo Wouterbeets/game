@@ -12,6 +12,7 @@ import (
 	flag "gopkg.in/alecthomas/kingpin.v2"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"os"
 )
 
@@ -92,9 +93,6 @@ func isAllowed(allowedMoves []int, move int) bool {
 }
 
 func getBestMove(scores []float64, allowedMoves []int) (move int) {
-	log.Println(scores[:3])
-	log.Println(scores[3:6])
-	log.Println(scores[6:9])
 	bestScore := -1.0
 	bestMove := 0
 	for move, score := range scores {
@@ -106,7 +104,7 @@ func getBestMove(scores []float64, allowedMoves []int) (move int) {
 	return bestMove
 }
 
-func (g *Game) move(ai *gen.Ai, rounds int) []float64 {
+func (g *Game) move(ai gen.Intel, rounds int) []float64 {
 	if g.caller == P2 {
 		g.switchBoard()
 		input := append(g.gameBoard[:], float64(rounds))
@@ -125,9 +123,47 @@ func (g *Game) move(ai *gen.Ai, rounds int) []float64 {
 	TODO right now package genetic calls Start 2X so each player can play as P1.
 	That logic should be here since genetic should work with any 2p game and not all of them have a P1 advantage
 */
-func (g *Game) Start(p1, p2 *gen.Ai) (s1, s2 float64) {
+
+type randomPlayer struct {
+	board []float64
+}
+
+func (r *randomPlayer) In(board []float64) error {
+	r.board = board
+	return nil
+}
+
+func (r *randomPlayer) Out() []float64 {
+	validMoves := []int{}
+	for i, val := range r.board {
+		if val == 0 && i != 9 {
+			validMoves = append(validMoves, i)
+		}
+	}
+	move := validMoves[rand.Intn(len(validMoves))]
+	ret := []float64{0, 0, 0, 0, 0, 0, 0, 0, 0}
+	ret[move] = 1
+	return ret
+}
+
+func (r *randomPlayer) GetName() string {
+	return "random Player"
+}
+
+func (g *Game) Teach(p1 gen.Intel) float64 {
+	var s1, s4 float64
+	for i := 0; i < 10; i++ {
+		play1, _ := g.Combat(p1, &randomPlayer{})
+		_, play4 := g.Combat(&randomPlayer{}, p1)
+		s1 += play1
+		s4 += play4
+	}
+	return (s1 + s4) / 10
+}
+
+func (g *Game) Combat(p1, p2 gen.Intel) (s1, s2 float64) {
 	defer clean(g)
-	log.Printf("%20s vs %20s ", p1.Name, p2.Name)
+	//log.Printf("%20s vs %20s ", p1.Name, p2.Name)
 	bestMove := 0
 	var scores []float64
 	rounds := 0
@@ -137,11 +173,11 @@ func (g *Game) Start(p1, p2 *gen.Ai) (s1, s2 float64) {
 		bestMove = getBestMove(scores, g.getMoves())
 		if g.gameBoard[bestMove] != 0 {
 			g.winner = 2
-			log.Println(g, "\n", bestMove)
 			break
 		}
 		g.gameBoard[bestMove] = P1
-		log.Println(g)
+		log.Println(g, "p1")
+		log.Println()
 		if g.winner = g.checkWin(); g.winner != 0 {
 			break
 		}
@@ -151,11 +187,10 @@ func (g *Game) Start(p1, p2 *gen.Ai) (s1, s2 float64) {
 		bestMove = getBestMove(scores, g.getMoves())
 		if g.gameBoard[bestMove] != 0 {
 			g.winner = -2
-			log.Println(g, "\n", bestMove)
 			break
 		}
 		g.gameBoard[bestMove] = P2
-		log.Println(g)
+		log.Println(g, "p2")
 		if g.winner = g.checkWin(); g.winner != 0 {
 			break
 		}
@@ -166,19 +201,19 @@ func (g *Game) Start(p1, p2 *gen.Ai) (s1, s2 float64) {
 		s1 = float64(0.4)
 		s2 = float64(0.4)
 	} else if g.winner == P1 {
-		log.Println("winner is", p1.Name)
+		log.Println("winner is", p1.GetName())
 		s1 = float64(1)
 		s2 = float64(0)
 	} else if g.winner == P2 {
-		log.Println("winner is", p2.Name)
+		log.Println("winner is", p2.GetName())
 		s1 = float64(0)
 		s2 = float64(1)
 	} else if g.winner == 2 {
-		log.Println(p1.Name, "broke the rules")
+		log.Println("p1 broke the rules")
 		s1 = float64(0)
 		s2 = float64(0)
 	} else if g.winner == -2 {
-		log.Println(p2.Name, "broke the rules")
+		log.Println("p2 broke the rules")
 		s1 = float64(0)
 		s2 = float64(0)
 	}
@@ -334,7 +369,7 @@ func play(ais importAisInfo) {
 	}
 	op := p.Ai[num]
 	g := new(Game)
-	p.Chal = g
+	p.FightingPit = g
 	ex := new(Game)
 	fmt.Println(ex)
 	fmt.Println("when its your turn type the index of square you want to play")
@@ -367,7 +402,8 @@ func main() {
 		*poolSize += len(ais.AiNames)
 		p := gen.CreatePool(*poolSize, *mutation, *mutationStrength, INPUT_NEURONS, *neuronsPerLayer, *hiddenLayers+2, OUTPUT_NEURONS)
 		g := new(Game)
-		p.Chal = g
+		//p.FightingPit = g
+		p.School = g
 		for i, name := range ais.AiNames {
 			log.Println("imported ai", i, name)
 			p.Ai[i].Name = name
