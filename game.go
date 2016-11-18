@@ -96,7 +96,7 @@ func getBestMove(scores []float64, allowedMoves []int) (move int) {
 	bestScore := -1.0
 	bestMove := 0
 	for move, score := range scores {
-		if score > bestScore && isAllowed(allowedMoves, move) {
+		if score > bestScore /* && isAllowed(allowedMoves, move)*/ {
 			bestScore = score
 			bestMove = move
 		}
@@ -152,13 +152,11 @@ func (r *randomPlayer) GetName() string {
 
 func (g *Game) Teach(p1 gen.Intel) float64 {
 	var s1, s4 float64
-	for i := 0; i < 10; i++ {
-		play1, _ := g.Combat(p1, &randomPlayer{})
-		_, play4 := g.Combat(&randomPlayer{}, p1)
-		s1 += play1
-		s4 += play4
-	}
-	return (s1 + s4) / 10
+	play1, _ := g.Combat(p1, &randomPlayer{})
+	_, play4 := g.Combat(&randomPlayer{}, p1)
+	s1 += play1
+	s4 += play4
+	return (s1 + s4)
 }
 
 func (g *Game) Combat(p1, p2 gen.Intel) (s1, s2 float64) {
@@ -197,24 +195,27 @@ func (g *Game) Combat(p1, p2 gen.Intel) (s1, s2 float64) {
 	}
 	if g.winner == DRAW {
 		log.Println("draw")
-		s1 = float64(0.4)
-		s2 = float64(0.4)
+		s1 = float64(0.4) + (float64(rounds))
+		s2 = float64(0.4) + (float64(rounds))
+		fmt.Print(".")
 	} else if g.winner == P1 {
 		log.Println("winner is", p1.GetName())
-		s1 = float64(1)
-		s2 = float64(0)
+		s1 = float64(1) + (float64(rounds))
+		s2 = float64(0) + (float64(rounds))
+		fmt.Print(".")
 	} else if g.winner == P2 {
 		log.Println("winner is", p2.GetName())
-		s1 = float64(0)
-		s2 = float64(1)
+		s1 = float64(0) + (float64(rounds))
+		s2 = float64(1) + (float64(rounds))
+		fmt.Print(".")
 	} else if g.winner == 2 {
 		log.Println("p1 broke the rules")
-		s1 = float64(0)
-		s2 = float64(0)
+		s1 = float64(0) + (float64(rounds))
+		s2 = float64(0) + (float64(9))
 	} else if g.winner == -2 {
 		log.Println("p2 broke the rules")
-		s1 = float64(0)
-		s2 = float64(0)
+		s1 = float64(0) + (float64(9))
+		s2 = float64(0) + (float64(rounds))
 	}
 	return
 }
@@ -300,8 +301,9 @@ type importAisInfo struct {
 func importAis(files []string) (ais importAisInfo) {
 	for _, fileName := range files {
 		file, err := os.Open(fileName)
+		fmt.Println(fileName)
 		if err != nil {
-			fmt.Println(err, "\non file with name:", fileName)
+			fmt.Println(err, "\nno file with name:", fileName)
 			err = nil
 			continue
 		}
@@ -394,6 +396,7 @@ func play(ais importAisInfo) {
 }
 
 func main() {
+	fmt.Println(Files)
 	ais := importAis(*Files)
 	if *inter {
 		play(ais)
